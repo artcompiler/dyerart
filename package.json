@@ -27,7 +27,7 @@
     "redis": "2.6.3",
     "request": "^2.88.0",
     "stylus": "latest",
-    "underscore": "1.4.x"
+    "underscore": "1.12.x"
   },
   "engines": {
     "node": "9.0.0"
