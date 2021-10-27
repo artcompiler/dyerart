@@ -16,6 +16,7 @@
     "@babel/preset-react": "^7.12.10",
     "@google-cloud/storage": "^5.8.4",
     "@graffiticode/tracing": "^0.1.6",
+    "@opentelemetry/node": "^0.24.0",
     "atob": "2.1.1",
     "aws-sdk": "2.286.2",
     "babel-loader": "^8.1.0",
