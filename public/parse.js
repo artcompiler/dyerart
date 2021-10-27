@@ -1,35 +1,17 @@
-/*
- * Copyright 2014, Art Compiler LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * you may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2021, ARTCOMPILER INC
 
-/*
- TODO
- -- Fold expressions until fully applied or there are no more arguments:
-    (<x y: add x y> 10) 20..
- */
-
+var CodeMirror;
 if (typeof CodeMirror === "undefined") {
-  CodeMirror = {
+  var CodeMirror = {
     Pos: function () {
       return {};
     }
   };
 }
 
+var window;
 if (typeof window === "undefined") {
-  window = {};
+  var window = {};
   window = {
     gcexports: {
       coords: {},
@@ -471,6 +453,7 @@ var Ast = (function () {
       elts.push(elt);
     }
     var nameId = pop(ctx);
+    assert(nameId, "Ill formed node.");
     var e = node(ctx, nameId).elts;
     assert(e && e.length > 0, "Ill formed node.");
     var name = e[0];
@@ -684,13 +667,13 @@ var Ast = (function () {
       elts.push(pop(ctx))  // of
     }
     elts.push(pop(ctx))  // exprs
-    push(ctx, {tag: "CASE", elts: elts});
+    push(ctx, {tag: "CASE", elts: elts.reverse()});
   }
   function ofClause(ctx) {
     var elts = [];
     elts.push(pop(ctx));
     elts.push(pop(ctx));
-    push(ctx, {tag: "OF", elts: elts});
+    push(ctx, {tag: "OF", elts: elts.reverse()});
   }
 
   function record(ctx) {
@@ -1224,6 +1207,9 @@ window.gcexports.parser = (function () {
     if (match(ctx, TK_IDENT)) {
       return ident(ctx, cc);
     }
+    if (match(ctx, TK_NUM)) {
+      return number(ctx, cc);
+    }
     return str(ctx, cc);
   }
   function defList(ctx, resume) {
@@ -1345,7 +1331,7 @@ window.gcexports.parser = (function () {
         };
         ret.cls = "punc"
         return ret
-      })
+      });
     };
     return ret;
   }
@@ -1574,8 +1560,8 @@ window.gcexports.parser = (function () {
   }
 
   function pattern(ctx, cc) {
-    // FIXME only matches number literals for now
-    return primaryExpr(ctx, cc);
+    // FIXME only matches idents and literals for now
+    return identOrString(ctx, cc);
   }
 
   function thenClause(ctx, cc) {
@@ -1766,7 +1752,7 @@ window.gcexports.parser = (function () {
       });
       ret.cls = "param";
       return ret;
-    }
+    };
     ret.cls = "param";
     return ret;
   }
@@ -1774,7 +1760,7 @@ window.gcexports.parser = (function () {
   function param(ctx, cc) {
     return primaryExpr(ctx, function (ctx) {
       return cc
-    })
+    });
   }
 
   // Drive the parser
@@ -1788,8 +1774,8 @@ window.gcexports.parser = (function () {
     src = src.replace(/[\u2212]/g, "-");
     ast = ast.replace(/[\u2212]/g, "-");
     $.ajax({
-      type: "PUT",
-      url: "/compile",
+      type: "POST",
+      url: "/code",
       data: {
         "id": postCode ? null : gcexports.id,
         "forkID": gcexports.forkID || 0,
@@ -1804,60 +1790,28 @@ window.gcexports.parser = (function () {
       dataType: "json",
       success: function(data) {
         var obj = data.obj;
-        var errors;
-        let seenErrors = {};
-        if (obj.error && obj.error.length) {
-          errors = [];
-          obj.error.forEach(function (err) {
-            var coord = gcexports.coords[err.nid];
-            if (!coord || !coord.from || !coord.to) {
-              coord = {};
-              coord.from = CodeMirror.Pos(0, 0);
-              coord.to = CodeMirror.Pos(0, 0);
-            }
-            let errHash =
-              coord.from.line + " " + coord.from.ch + " " +
-              coord.to.line + " " + coord.to.ch + " " +
-              err.str;
-            if (!seenErrors[errHash]) {
-              // Avoid dups.
-              errors.push({
-                from: coord.from,
-                to: coord.to,
-                message: err.str,
-                severity : "error",
-              });
-              seenErrors[errHash] = true;
-            }
-          });
-          gcexports.lastErrors = gcexports.errors = errors;
-          gcexports.editor.performLint();
-        } else if (data.id) {
-          gcexports.lastErrors = gcexports.errors = [];
-          // We have a good id, so use it.
-          let ids = gcexports.decodeID(data.id);
-          let codeIDs = ids.slice(0, 2);
-          let dataIDs = gcexports.decodeID(gcexports.id).slice(2);
-          let id = gcexports.encodeID(codeIDs.concat(dataIDs));
-          gcexports.id = id;
-          let location = "/" + gcexports.view + "?id=" + id;
-          window.history.pushState(id, gcexports.language, location);
-          console.log("/" + gcexports.view + "?id=" + codeIDs.concat(gcexports.encodeID(dataIDs)).join("+"));
-          let state = {};
-          state[gcexports.id] = {
-            id: id,
-            src: src,
-            ast: ast,
-            postCode: postCode,
-            errors: errors,
-            obj: obj,
-          };
-          gcexports.dispatcher.dispatch(state);
-          gcexports.updateMark(id);
-          gcexports.forkID = data.forkID;
-          gcexports.editor.performLint();
-        }
-        gcexports.updateMark(gcexports.id);
+        gcexports.lastErrors = gcexports.errors = [];
+        // We have a good id, so use it.
+        let ids = gcexports.decodeID(data.id);
+        let codeIDs = ids.slice(0, 2);
+        let dataIDs = gcexports.decodeID(gcexports.id).slice(2);
+        let id = gcexports.encodeID(codeIDs.concat(dataIDs));
+        gcexports.id = id;
+        let location = "/" + gcexports.view + "?id=" + id;
+        window.history.pushState(id, gcexports.language, location);
+        console.log("/" + gcexports.view + "?id=" + codeIDs.concat(gcexports.encodeID(dataIDs)).join("+"));
+        let state = {};
+        state[gcexports.id] = {
+          id: id,
+          src: src,
+          ast: ast,
+          postCode: postCode,
+          obj: obj,
+        };
+        gcexports.dispatcher.dispatch(state);
+        gcexports.forkID = data.forkID;
+        gcexports.editor.performLint();
+        gcexports.updateMarkAndLabel(gcexports.id);
       },
       error: function(xhr, msg, err) {
         console.log("ERROR " + msg + " " + err);
@@ -1873,6 +1827,10 @@ window.gcexports.parser = (function () {
   }
 
   function saveSrc() {
+    if (window.gcexports.errors.length) {
+      console.log("saveSrc() errors=" + JSON.stringify(window.gcexport.errors));
+      return;
+    }
     // Update SRC for a given ID.
     var id = window.gcexports.id;
     let ids = window.gcexports.decodeID(id);
@@ -1895,7 +1853,7 @@ window.gcexports.parser = (function () {
   }
 
   function topEnv(ctx) {
-    return ctx.state.env[ctx.state.env.length-1]
+    return ctx.state.env[ctx.state.env.length-1];
   }
 
   window.gcexports.topEnv = topEnv;
@@ -1931,7 +1889,11 @@ window.gcexports.parser = (function () {
       if (cc === null) {
         if (resume) {
           // FIXME make all paths go through a resume function.
-          resume(state.errors, Ast.poolToJSON(ctx));
+          if (state.errors.length > 0) {
+            resume(state.errors);
+          } else {
+            resume(null, Ast.poolToJSON(ctx));
+          }
         } else if (state.errors.length === 0) {
           window.gcexports.errors = [];
           var thisAST = Ast.poolToJSON(ctx);
@@ -1944,7 +1906,9 @@ window.gcexports.parser = (function () {
             // activity after 1 sec.
             if (!window.gcexports.firstTime) {
               lastTimer = window.setTimeout(function () {
-                compileCode(thisAST, true);
+                if (gcexports.errors && gcexports.errors.length === 0) {
+                  compileCode(thisAST, true);
+                }
               }, 1000);
             }
             window.gcexports.firstTime = false;
@@ -1972,6 +1936,9 @@ window.gcexports.parser = (function () {
         state.cc = null;  // done for now.
         cls = "error"
         console.log(x.stack);
+        if (resume) {
+          resume(window.gcexports.errors);
+        }
       } else if (x === "comment") {
         cls = x
       } else {
@@ -2266,13 +2233,13 @@ var folder = function() {
     "NE": ne,
     "EQ": eq,
     "LT": lt,
-    "GT": gt,
+//    "GT": gt,
     "LE": le,
     "GE": ge,
     "NEG": neg,
     "LIST": list,
-    "CASE": caseExpr,
-    "OF": ofClause,
+//    "CASE": caseExpr,
+//    "OF": ofClause,
   };
 
   var canvasWidth = 0;
@@ -2601,3 +2568,7 @@ var folder = function() {
   }
 }();
 
+
+if (typeof exports !== "undefined") {
+  exports.parser = window.gcexports.parser;
+}

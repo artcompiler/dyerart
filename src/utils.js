@@ -1,3 +1,5 @@
+const assert = require('assert');
+const crypto = require('crypto');
 
 function getCompilerHost(lang, config) {
   if (config.hosts.get(lang)) {
@@ -22,6 +24,72 @@ function getCompilerPort(lang, config) {
 exports.getCompilerPort = getCompilerPort;
 
 function isNonEmptyString(str) {
-  return ('string' === typeof(str) && 0 < str.length);
+  return typeof str === 'string' && str.length > 0;
 }
 exports.isNonEmptyString = isNonEmptyString;
+
+function itemToHash(userID, lang, ast) {
+  userID = Number.parseInt(userID);
+  assert(!Number.isNaN(userID), 'userId must be a integer');
+  assert(/^L\d+/.test(lang), 'lang must be a string with format L#');
+  assert('object' === typeof ast && null !== ast, 'ast must be a non null object');
+  const hasher = crypto.createHash('sha256');
+  hasher.update(`${userID}.${lang}.${JSON.stringify(ast)}`);
+  return hasher.digest('hex');
+}
+exports.itemToHash = itemToHash;
+
+
+
+function cleanAndTrimObj(str) {
+  if (!isNonEmptyString(str)) {
+    return str;
+  }
+  str = str.replace(new RegExp(`'`,`g`), `''`);
+  str = str.replace(new RegExp(`\n`,`g`), ` `);
+  return str.trim();
+}
+exports.cleanAndTrimObj = cleanAndTrimObj;
+
+function cleanAndTrimSrc(str) {
+  if (!isNonEmptyString(str)) {
+    return str;
+  }
+  str = str.replace(new RegExp(`'`,`g`), `''`);
+  return str.trim();
+}
+exports.cleanAndTrimSrc = cleanAndTrimSrc;
+
+function parseJSON(str) {
+  if (!isNonEmptyString(str)) {
+    return null;
+  }
+  try {
+    return JSON.parse(str);
+  } catch (err) {
+    console.log(err.stack);
+    console.log(`ERROR parseJSON: '${str}'`);
+    return null;
+  }
+}
+exports.parseJSON = parseJSON;
+
+function statusCodeFromErrors(errs) {
+  let statusCode;
+  return errs.some(
+    err => statusCode =
+      err.statusCode
+  ) && statusCode || 500;
+}
+
+function messageFromErrors(errs) {
+  let message;
+  return errs.some(
+    err => message =
+      err.data && err.data.error ||
+      err.data
+  ) && message || "Internal error";
+}
+
+exports.statusCodeFromErrors = statusCodeFromErrors;
+exports.messageFromErrors = messageFromErrors;

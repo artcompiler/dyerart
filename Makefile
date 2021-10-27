@@ -1,9 +1,13 @@
-default: build
-	node app.js
+default:
+	npm start
 
 test: build
 	npm run test
 
 build:
-	browserify -t babelify ./src/index.js > ./lib/index.js
-	browserify -t babelify ./src/form.js > ./lib/form.js
+	npm run build
+
+deploy: $(eval SHELL:=/bin/bash)
+	gcloud builds submit \
+		--config cloudbuild.deploy.json \
+		--substitutions=COMMIT_SHA="$$(git rev-parse HEAD)"

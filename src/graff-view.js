@@ -2,9 +2,6 @@ import * as React from "react";
 import * as ReactDOM from "react-dom";
 import {
   assert,
-  message,
-  messages,
-  reserveCodeRange,
   decodeID,
   encodeID,
 } from "./share.js"
@@ -45,7 +42,7 @@ class GraffContent extends React.Component {
     this.onChange = this.onChange.bind(this);
   }
 
-  compileCode(itemID) {
+  compileCode(itemID, refresh) {
     let langID, codeID, dataID;
     let ids = decodeID(itemID);
     langID = ids[0];
@@ -53,25 +50,36 @@ class GraffContent extends React.Component {
     dataID = ids.slice(2);
     let self = this;
     let lang = window.gcexports.language;
-    let state = this.state && this.state[itemID] ? this.state[itemID] : {};
+    let state = this.state && this.state[itemID] || {};
     let params = "";
-    let refresh = state.refresh;
+    // let refresh = state.refresh;
     if (refresh) {
       params += "&refresh=true";
       state.refresh = false;
     }
     if (codeID && itemID && (refresh || itemID !== this.lastItemID)) {
-      self.lastItemID = itemID;
+      self.lastItemID = window.gcexports.lastItemID = itemID;
       self.pendingCompRequests++;
       try {
-        window.gcexports.updateMark && window.gcexports.updateMark(itemID);
-        d3.json(location.origin + "/data/?id=" + itemID + params, (err, obj) => {
+        window.gcexports.updateStat && window.gcexports.updateStat(itemID);
+        d3.json(location.origin + "/data?id=" + itemID + params, (err, obj) => {
+          if (err) {
+            // let state = {};
+            // state[gcexports.id] = {
+            //   status: err.status,
+            //   message: err.statusText,
+            //   obj: {},
+            // };
+            // gcexports.dispatcher.dispatch(state);
+            // self.pendingCompRequests--;
+            obj = {};
+          }
           self.pendingCompRequests--;
           // if (dataID && +dataID !== 0) {
           //   // This is the magic where we collapse the "tail" into a JSON object.
           //   // Next this JSON object gets interned as static data (in L113).
           //   console.log(decodeID(window.gcexports.id).join("+") + " --> " + dataID);
-          //   d3.json(location.origin + "/data/?id=" + encodeID(dataID) + params, (err, data) => {
+          //   d3.json(location.origin + "/data?id=" + encodeID(dataID) + params, (err, data) => {
           //     let state = {};
           //     state[lang] = {
           //       id: itemID,
@@ -95,6 +103,8 @@ class GraffContent extends React.Component {
             id: itemID,
             obj: obj,
             data: {},  // Clear data
+            status: err && err.status,
+            message: err && err.statusText,
           };
           if (refresh || self.pendingCompRequests === 0) {
             self.pendingCompRequest = 0;
@@ -105,7 +115,7 @@ class GraffContent extends React.Component {
         console.log("x=" + x.stack);
       }
     }
-    return true;
+    return;
   }
 
   componentDidMount() {
@@ -116,7 +126,7 @@ class GraffContent extends React.Component {
       // Wait for valid id.
       return;
     }
-    this.compileCode(itemID);
+    this.compileCode(itemID, false);
     let language = gcexports.language;
     let history = {
       language: language,
@@ -151,7 +161,7 @@ class GraffContent extends React.Component {
         this.postData(itemID, data, label, parentID);
       } else if (gcexports.decodeID(itemID)[2] !== 0 || state.refresh) {
         // Got an itemID with data that is not in memory.
-        this.compileCode(itemID);
+        this.compileCode(itemID, state.refresh);
       }
       gcexports.doneLoading = true;
     }
@@ -160,7 +170,7 @@ class GraffContent extends React.Component {
       let codeIDs = ids.slice(0, 2);
       let dataIDs = ids.slice(2);
       console.log("/" + gcexports.view + "?id=" + codeIDs.concat(gcexports.encodeID(dataIDs)).join("+"));
-      window.gcexports.updateMark && window.gcexports.updateMark(itemID);
+      window.gcexports.updateStat && window.gcexports.updateStat(itemID);
     }
   }
 
@@ -201,7 +211,7 @@ class GraffContent extends React.Component {
             ids = ids.slice(0, 2).concat(decodeID(dataID));
             itemID = encodeID(ids);
             if (dataID !== lastDataID && state.recompileCode) {
-              self.compileCode(itemID);
+              self.compileCode(itemID, true);
             }
             if (state.dontUpdateID !== true) {
               gcexports.id = itemID;
@@ -252,17 +262,15 @@ class GraffContent extends React.Component {
       let item = data[itemID];
       if (item && (!item.obj || item.recompileCode)) {
         let recompileCode = item.recompileCode;
+        let lastItemID = window.gcexports.lastItemID || codeID;
         // If item doesn't have an obj, then get it from the previous compile of this itemID or codeID.
         item.obj =
           !recompileCode && this.state[itemID] && this.state[itemID].obj ||
           !recompileCode && ids[2] === 0 && this.state[codeID] && this.state[codeID].obj ||
-          this.compileCode(itemID) && (
-            this.state[itemID] && this.state[itemID].obj ||
-            this.state[codeID] && this.state[codeID].obj
-            // Return the current obj, or base obj if none, while recompiling.
-          );
+          this.compileCode(itemID) ||
+          this.state[lastItemID] && this.state[lastItemID].obj;
+        // Return the current obj, or base obj if none, while recompiling.
         item.id = itemID;
-        assert(item.obj);
       } else if (this.state[codeID] && !this.state[codeID].obj) {
         // Don't have the base obj set yet.
         assert(this.state[codeID].obj);
@@ -271,7 +279,7 @@ class GraffContent extends React.Component {
           obj: this.state[codeID].obj,
         };
       }
-      if (item) {
+      if (item && item.obj) {
         if (this.state.postCode) {
           // New code so clear (don't copy) old state.
           state[itemID] = item;
