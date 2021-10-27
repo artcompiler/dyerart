@@ -1,3 +1,4 @@
+// Copyright (c) ARTCOMPILER, INC 2021
 const assert = require('assert');
 const express = require('express');
 const _ = require('underscore');
