@@ -95,7 +95,7 @@ app.engine('html', function (templateFile, options, callback) {
 var request = require('request');
 app.get("/", (req, res) => {
   let proto = req.headers['x-forwarded-proto'] || "http";
-  request([proto, "://", "www.dyerart.com", "/form?id=KY1CVL67phN"].join("")).pipe(res);
+  res.redirect([proto, '://artcompiler.com/form?label=home'].join(''));
 });
 
 const aliases = {};
