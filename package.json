@@ -18,7 +18,7 @@
     "@graffiticode/tracing": "^0.1.6",
     "@opentelemetry/node": "^0.24.0",
     "atob": "2.1.1",
-    "aws-sdk": "2.286.2",
+    "aws-sdk": "2.814.0",
     "babel-loader": "^8.1.0",
     "bent": "^7.3.12",
     "body-parser": "^1.19.0",
