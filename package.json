@@ -29,7 +29,7 @@
     "csv2json": "^1.4.2",
     "d3": "^4.13.0",
     "errorhandler": "^1.5.1",
-    "express": "^4.17.1",
+    "express": "^4.17.3",
     "express-session": "^1.17.1",
     "file-loader": "^6.2.0",
     "hashids": "1.1.1",
